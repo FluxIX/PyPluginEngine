@@ -8,7 +8,7 @@ import os
 import os.path
 from pathlib import Path
 
-def import_modules( directory_path : Union[ str, Path ], *target_file_extensions : Iterable[ str ], **kwargs : Dict[ str, Any ] ) -> List[ ModuleType ]:
+def import_modules( directory_path: Union[ str, Path ], *target_file_extensions: Iterable[ str ], **kwargs: Dict[ str, Any ] ) -> List[ ModuleType ]:
     """
     Imports modules from files from the given directory path which have one of the target file extensions. Modules whose filenames start with a period are ignored.
 
@@ -30,40 +30,41 @@ def import_modules( directory_path : Union[ str, Path ], *target_file_extensions
 
     if isinstance( directory_path, str ):
         if not os.path.isabs( directory_path ):
-            directory_path : Path = Path( os.getcwd(), directory_path )
+            directory_path: Path = Path( os.getcwd(), directory_path )
         else:
-            directory_path : Path = Path( directory_path )
+            directory_path: Path = Path( directory_path )
     elif not isinstance( directory_path, Path ):
         raise ValueError( "Directory path must be a Path instance." )
 
-    relative_import_package_name : ModuleType = kwargs.get( "relative_import_package", None )
+    relative_import_package_name: ModuleType = kwargs.get( "relative_import_package", None )
     if relative_import_package_name is not None:
         if isinstance( relative_import_package_name, ModuleType ):
             relative_import_package_name = relative_import_package_name.__name__
         elif not isinstance( relative_import_package_name, str ):
             raise ValueError( f"Invalid relative import package name: { relative_import_package_name }" )
 
-    recursive : bool = bool( kwargs.get( "recursive", False ) )
+    recursive: bool = bool( kwargs.get( "recursive", False ) )
 
-    raw_ignored_filenames : Iterable[ Union[ str, Path ] ] = kwargs.get( "ignored_filenames", None )
+    raw_ignored_filenames: Iterable[ Union[ str, Path ] ] = kwargs.get( "ignored_filenames", None )
     if raw_ignored_filenames is None:
         raw_ignored_filenames = [ "__init__", "__main__" ]
 
-    ignored_filenames : Set[ Path ] = set()
+    ignored_filenames: Set[ Path ] = set()
     for filename in raw_ignored_filenames:
         if isinstance( filename, str ):
             filename = Path( filename )
         elif not isinstance( filename, Path ):
             raise ValueError( "Invalid ignored filename; filename must be a Path." )
-    
+
         ignored_filenames.add( filename )
+    _ignored_filenames = set( map( lambda x: x.stem, ignored_filenames ) )
 
     # verify the target_file_extensions
     for ext in target_file_extensions:
         if not isinstance( ext, str ):
             raise ValueError( f"File extension '{ ext }' is not a valid string." )
 
-    modules_imported : List[ ModuleType ] = []
+    modules_imported: List[ ModuleType ] = []
 
     for root, directories, filenames in os.walk( directory_path, topdown = True ):
         if not recursive:
@@ -71,11 +72,17 @@ def import_modules( directory_path : Union[ str, Path ], *target_file_extensions
 
         failed_imports = []
 
+        if directory_path != root:
+            subdirectories = Path( os.path.relpath( root, directory_path ) ).parts
+            additional_pathage_path = "".join( map( lambda x: f"{ x }.", subdirectories ) )
+        else:
+            additional_pathage_path = ""
+
         for filename in filenames:
             name, extension = os.path.splitext( filename )
 
-            if extension in target_file_extensions and name not in ignored_filenames and not name.lstrip().startswith( "." ):
-                module_name = f".{ name }"
+            if extension in target_file_extensions and not name.lstrip().startswith( "." ) and name not in _ignored_filenames:
+                module_name = f".{ additional_pathage_path }{ name }"
 
                 try:
                     imported_module = importlib.import_module( module_name, relative_import_package_name )
