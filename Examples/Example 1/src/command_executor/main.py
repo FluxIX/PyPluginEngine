@@ -16,7 +16,7 @@ def main( args = None ) -> int:
     output_to_stderr = False
 
     try:
-        for name in get_registered_commands():
+        for name in registered_commands:
             command_type = registered_commands[ name ]
             command = command_type( stdout = output_to_stdout, stderr = output_to_stderr )
             command.execute( *args )
